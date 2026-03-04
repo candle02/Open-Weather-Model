@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+ENV/
+env/
+*.egg-info/
+dist/
+build/
+
+# Environment
+.env
+*.env
+!.env.example
+
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# ML Models
+*.pkl
+*.joblib
+models/*.pkl
+models/*.joblib
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker
+.dockerignore
+
+# K8s secrets
+k8s/secret.yaml

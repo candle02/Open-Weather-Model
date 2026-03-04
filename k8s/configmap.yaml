@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: weather-forecast
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: weather-config
+  namespace: weather-forecast
+data:
+  # Update these values for your location
+  LATITUDE: "36.1627"
+  LONGITUDE: "-86.7816"
+  LOCATION_NAME: "Nashville, TN"
+  
+  # LLM Configuration
+  LLM_PROVIDER: "ollama"  # "ollama" or "openai"
+  
+  # Ollama settings (if using ollama)
+  OLLAMA_BASE_URL: "http://ollama.default.svc.cluster.local:11434"  # Update with your Ollama service URL
+  OLLAMA_MODEL: "llama3.2:3b"  # Small model that fits in 4-6GB VRAM
+  
+  # OpenAI-compatible settings (if using openai provider)
+  # OPENAI_BASE_URL: "http://your-api-server:8000/v1"
+  # OPENAI_MODEL: "gpt-3.5-turbo"
+  
+  # Database
+  DATABASE_PATH: "/data/weather.db"
+  
+  # Update intervals
+  UPDATE_INTERVAL: "10"  # minutes
+  ML_RETRAIN_INTERVAL: "24"  # hours
+  HISTORY_RETENTION_DAYS: "365"
+  
+  # Server
+  HOST: "0.0.0.0"
+  PORT: "8000"
+  LOG_LEVEL: "INFO"

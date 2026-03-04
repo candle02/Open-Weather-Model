@@ -1,0 +1,156 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: weather-forecast
+  namespace: weather-forecast
+  labels:
+    app: weather-forecast
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: weather-forecast
+  template:
+    metadata:
+      labels:
+        app: weather-forecast
+    spec:
+      containers:
+      - name: weather-forecast
+        image: weather-forecast:latest  # Update with your registry
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+          protocol: TCP
+        env:
+        # From ConfigMap
+        - name: LATITUDE
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: LATITUDE
+        - name: LONGITUDE
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: LONGITUDE
+        - name: LOCATION_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: LOCATION_NAME
+        - name: LLM_PROVIDER
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: LLM_PROVIDER
+        - name: OLLAMA_BASE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: OLLAMA_BASE_URL
+        - name: OLLAMA_MODEL
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: OLLAMA_MODEL
+        - name: DATABASE_PATH
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: DATABASE_PATH
+        - name: UPDATE_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: UPDATE_INTERVAL
+        - name: ML_RETRAIN_INTERVAL
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: ML_RETRAIN_INTERVAL
+        - name: HISTORY_RETENTION_DAYS
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: HISTORY_RETENTION_DAYS
+        - name: HOST
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: HOST
+        - name: PORT
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: PORT
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: weather-config
+              key: LOG_LEVEL
+        # Optional: Only needed if using OpenAI provider
+        # - name: OPENAI_API_KEY
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: weather-secrets
+        #       key: OPENAI_API_KEY
+        #       optional: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: data
+          mountPath: /data
+        - name: models
+          mountPath: /models
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: weather-data-pvc
+      - name: models
+        persistentVolumeClaim:
+          claimName: weather-models-pvc
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weather-data-pvc
+  namespace: weather-forecast
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: weather-models-pvc
+  namespace: weather-forecast
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi

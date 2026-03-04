@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: weather-forecast
+  namespace: weather-forecast
+  labels:
+    app: weather-forecast
+spec:
+  type: ClusterIP
+  selector:
+    app: weather-forecast
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+---
+# Optional: Ingress for external access
+# Uncomment and configure based on your ingress controller
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: weather-forecast-ingress
+#   namespace: weather-forecast
+#   annotations:
+#     kubernetes.io/ingress.class: traefik  # or nginx, etc.
+# spec:
+#   rules:
+#   - host: weather.yourdomain.com
+#     http:
+#       paths:
+#       - path: /
+#         pathType: Prefix
+#         backend:
+#           service:
+#             name: weather-forecast
+#             port:
+#               number: 8000
