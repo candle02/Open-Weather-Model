@@ -1,349 +1,271 @@
-# AI Weather Forecasting Service for K3s
+# AI Weather Forecast for K3s Homelab
 
-🌦️ **AI-powered weather forecasting dashboard with Home Assistant integration**
+🌦️ **Complete weather forecasting system with local AI - 100% self-hosted on K3s!**
 
-Aggregates multiple free weather APIs, applies ML for custom predictions, and provides natural language insights.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![K3s](https://img.shields.io/badge/K3s-Compatible-green)](https://k3s.io/)
+[![Ollama](https://img.shields.io/badge/Ollama-Powered-blue)](https://ollama.com/)
 
-## Features
+## ✨ What Is This?
 
-- 🔮 **Multi-source aggregation** - Combines Weather.gov, Open-Meteo, and wttr.in
-- 📊 **Trend analysis** - Analyzes historical patterns in your local weather
-- 🤖 **AI summaries** - Natural language weather briefings via **Ollama** (local, open-source)
-- ⚠️ **Anomaly detection** - Alerts on unusual weather patterns
-- 🧠 **Custom ML predictions** - Trains on your local historical data
-- 🏠 **Smart home recommendations** - Suggests Home Assistant automations
-- 📈 **Interactive dashboard** - Real-time visualization with charts
-- 🔌 **HA integration** - REST API sensors for Home Assistant
-- 🔄 **N8n ready** - Webhooks for workflow automation
-- 🆓 **100% Free** - No API costs, all open-source
+A **complete AI-powered weather forecasting service** that runs entirely on your K3s homelab cluster. No cloud dependencies, no API costs, no data leaving your network.
 
-## Architecture
+**Features:**
+- 🔮 Multi-source weather aggregation (Weather.gov, Open-Meteo, wttr.in)
+- 🤖 AI summaries via local LLM (Ollama)
+- 📊 Trend analysis & anomaly detection
+- 🧠 Custom ML predictions (Prophet time series)
+- 🏠 Smart Home Assistant recommendations
+- 🔄 N8n workflow integration
+- 🆓 **100% Free - $0/month forever!**
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Weather Dashboard                     │
-│              (HTMX + Tailwind + Chart.js)               │
-└─────────────────────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────┐
-│                   FastAPI Backend                        │
-├─────────────────────────────────────────────────────────┤
-│  • Weather Aggregator                                    │
-│  • Historical Data Tracker (SQLite)                      │
-│  • Trend Analysis Engine                                 │
-│  • Anomaly Detector                                      │
-│  • ML Prediction Engine                                  │
-│  • AI Summarizer (LLM)                                   │
-│  • Smart Home Advisor                                    │
-└─────────────────────────────────────────────────────────┘
-           │                    │                 │
-           ▼                    ▼                 ▼
-    ┌──────────┐       ┌──────────────┐   ┌──────────┐
-    │   HA     │       │  N8n         │   │  Free    │
-    │ Sensors  │       │  Webhooks    │   │  APIs    │
-    └──────────┘       └──────────────┘   └──────────┘
-```
-
-## Tech Stack
-
-- **Backend**: FastAPI + Python 3.11+
-- **Database**: SQLite
-- **ML**: scikit-learn, Prophet (time series)
-- **AI**: **Ollama** (local LLMs) + Pydantic AI
-- **Frontend**: HTMX + Tailwind CSS + Chart.js
-- **Container**: Docker
-- **Orchestration**: K3s
-
-## Quick Start
-
-### Prerequisites
-
-- K3s cluster (or Docker)
-- **Ollama** installed with a small model (see [OLLAMA_SETUP.md](OLLAMA_SETUP.md))
-- Location coordinates (lat/lon)
-
-### Configuration
-
-1. **Set up Ollama** (see [OLLAMA_SETUP.md](OLLAMA_SETUP.md)):
-   ```bash
-   # Install Ollama
-   curl -fsSL https://ollama.com/install.sh | sh
-   
-   # Pull a model (fits in 4-6GB VRAM)
-   ollama pull llama3.2:3b
-   ```
-
-2. Copy `.env.example` to `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-3. Edit `.env` with your details:
-   ```env
-   LATITUDE=36.1627
-   LONGITUDE=-86.7816
-   LOCATION_NAME="Nashville, TN"
-   
-   LLM_PROVIDER=ollama
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_MODEL=llama3.2:3b
-   ```
-
-### Deploy to K3s
+## 🚀 Quick Deploy (3 minutes)
 
 ```bash
-# Build and push image (adjust registry as needed)
-docker build -t weather-forecast:latest .
+# On your K3s server:
+git clone https://github.com/candle02/Open-Weather-Model.git
+cd Open-Weather-Model
 
-# Apply Kubernetes manifests
-kubectl apply -f k8s/
+# Edit your location
+nano deploy-all.sh  # Set LATITUDE, LONGITUDE, LOCATION_NAME
 
-# Check deployment
-kubectl get pods -n weather-forecast
+# Deploy!
+chmod +x deploy-all.sh
+./deploy-all.sh
+
+# Access at http://weather.local
 ```
 
-### Local Development
+**Done!** Everything deploys automatically to K3s. ✅
 
-```bash
-# Create virtual environment
-python -m venv .venv
-source .venv/bin/activate  # or .venv\Scripts\activate on Windows
+## 🏛️ Architecture
 
-# Install dependencies
-pip install -r requirements.txt
+**Everything runs on K3s. Nothing external needed.**
 
-# Run development server
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+┌─────────────────────────────┐
+│   Your K3s Homelab Cluster   │
+├─────────────────────────────┤
+│ ┌───────────────────────┐ │
+│ │ Ollama (Local LLM)   │ │
+│ │ llama3.2:3b          │ │
+│ └──────────┬────────────┘ │
+│            │              │
+│            ▼              │
+│ ┌───────────────────────┐ │
+│ │ Weather Forecast    │ │
+│ │ FastAPI + ML + AI   │ │
+│ └──────────┬────────────┘ │
+│            │              │
+│            ▼              │
+│ ┌───────────────────────┐ │
+│ │ Ingress (Traefik)   │ │
+│ │ weather.local       │ │
+│ └───────────────────────┘ │
+└─────────────────────────────┘
+        │
+        ▼
+   Home Assistant / N8n
 ```
 
-## Home Assistant Integration
+**See [DEPLOYMENT.md](DEPLOYMENT.md) for complete architecture details.**
 
-### REST Sensors
+## 📚 Documentation
 
-Add to your `configuration.yaml`:
+| File | What's In It |
+|------|-------------|
+| **[QUICKREF.md](QUICKREF.md)** | 🚀 Quick reference - commands, URLs, troubleshooting |
+| **[DEPLOYMENT.md](DEPLOYMENT.md)** | 🏛️ What runs where - complete architecture guide |
+| **[OLLAMA_SETUP.md](OLLAMA_SETUP.md)** | 🤖 Ollama installation & model selection |
+| **[WHY_OLLAMA.md](WHY_OLLAMA.md)** | 💡 Why local LLMs save you $180/year |
+| **[LOCAL_DEV.md](LOCAL_DEV.md)** | 💻 Run locally without K3s |
+| **[SETUP.md](SETUP.md)** | 🔧 Detailed manual setup (if you don't use deploy-all.sh) |
+| **[README.md](README.md)** | 📖 Full project documentation |
+
+## ✅ Requirements
+
+**Minimum:**
+- K3s cluster (or any Kubernetes)
+- 2 CPU cores, 6GB RAM, 25GB storage
+- Internet (for weather APIs only)
+
+**Recommended:**
+- 4 CPU cores, 8GB RAM, 30GB storage  
+- 4-6GB VRAM (NVIDIA GPU for faster LLM)
+
+**Cost:** $0/month (all free APIs + local processing)
+
+## 💡 What Makes This Special?
+
+### vs Cloud Weather Services
+- ✅ **Free forever** (no $9.99/month subscriptions)
+- ✅ **100% private** (your data never leaves your network)
+- ✅ **No vendor lock-in** (runs on any K8s cluster)
+- ✅ **Customizable** (add your own weather sources, tweak AI prompts)
+
+### vs DIY Weather Scripts
+- ✅ **AI-powered** (natural language summaries)
+- ✅ **Production-ready** (K8s deployment, health checks, monitoring)
+- ✅ **ML predictions** (learns from your local weather patterns)
+- ✅ **HA integration** (REST sensors, automations)
+- ✅ **Anomaly detection** (alerts on unusual weather)
+
+## 🔌 Integrations
+
+### Home Assistant
 
 ```yaml
+# Add to configuration.yaml
 sensor:
   - platform: rest
-    name: "Weather AI Current"
-    resource: "http://weather-forecast.default.svc.cluster.local:8000/api/current"
+    name: "AI Weather"
+    resource: "http://weather-forecast.weather-forecast.svc.cluster.local:8000/api/current"
     json_attributes:
-      - temperature
-      - humidity
-      - conditions
       - ai_summary
       - recommendations
-    value_template: "{{ value_json.temperature }}"
-    unit_of_measurement: "°F"
-    scan_interval: 300  # 5 minutes
-
-  - platform: rest
-    name: "Weather AI Forecast"
-    resource: "http://weather-forecast.default.svc.cluster.local:8000/api/forecast"
-    json_attributes:
-      - hourly
-      - daily
-      - anomalies
-      - trends
-    value_template: "{{ value_json.summary }}"
-    scan_interval: 600  # 10 minutes
+    value_template: "{{ value_json.conditions.temperature }}"
 ```
 
-### Automation Example
+Get AI summaries, smart recommendations, and automatic sensors!
 
-```yaml
-automation:
-  - alias: "Close windows before rain"
-    trigger:
-      - platform: state
-        entity_id: sensor.weather_ai_forecast
-    condition:
-      - condition: template
-        value_template: "{{ 'rain' in state_attr('sensor.weather_ai_forecast', 'hourly')[0].conditions.lower() }}"
-    action:
-      - service: notify.mobile_app
-        data:
-          message: "Rain predicted in 1 hour - close windows!"
-```
+### N8n Workflows
 
-## N8n Integration
+Webhook endpoint: `POST /api/webhook/forecast`
 
-### Webhook Endpoint
+Example workflow:
+1. Schedule trigger (every 6 hours)
+2. HTTP request to webhook
+3. Check for anomalies
+4. Send notification if unusual weather detected
 
-`POST /api/webhook/forecast`
+## 📊 Example Output
 
-Returns current conditions, forecast, AI summary, and recommendations.
+**AI Summary:**
+> "Pleasant afternoon with partly cloudy skies at 72°F. Moderate humidity and light winds make for comfortable conditions. Rain likely in 3 hours - consider closing windows."
 
-### Example N8n Workflow
+**Smart Recommendations:**
+- ⚠️ "Close windows before rain in 2 hours"
+- 🌡️ "Pre-cool home before peak heat at 2pm"
+- ☀️ "Clear skies - good for solar charging"
 
-1. **Schedule Trigger** (every 6 hours)
-2. **HTTP Request** to `http://weather-forecast:8000/api/webhook/forecast`
-3. **IF Node** - Check for anomalies
-4. **Send Notification** if anomalies detected
+**Anomaly Detection:**
+- "Temperature is 15°F higher than usual (3.2 std devs)"
+- "Unusual combination of weather conditions detected"
 
-## API Endpoints
-
-### Public Endpoints
-
-- `GET /` - Dashboard UI
-- `GET /api/current` - Current weather conditions + AI insights
-- `GET /api/forecast` - Full forecast with trends and predictions
-- `GET /api/historical?days=7` - Historical weather data
-- `GET /api/trends` - Trend analysis
-- `GET /api/anomalies` - Detected anomalies
-- `GET /api/recommendations` - Smart home automation suggestions
-- `POST /api/webhook/forecast` - N8n webhook endpoint
-
-### Admin Endpoints
-
-- `POST /api/admin/train` - Retrain ML model
-- `GET /api/admin/accuracy` - Forecast accuracy metrics
-- `GET /api/health` - Health check
-
-## Configuration Options
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|----------|
-| `LATITUDE` | Location latitude | Required |
-| `LONGITUDE` | Location longitude | Required |
-| `LOCATION_NAME` | Display name for location | Required |
-| `LLM_PROVIDER` | LLM provider ("ollama" or "openai") | `ollama` |
-| `OLLAMA_BASE_URL` | Ollama server URL | `http://localhost:11434` |
-| `OLLAMA_MODEL` | Ollama model name | `llama3.2:3b` |
-| `OPENAI_API_KEY` | OpenAI API key (if using openai) | None |
-| `OPENAI_BASE_URL` | OpenAI-compatible API URL | None |
-| `OPENAI_MODEL` | OpenAI model name | `gpt-3.5-turbo` |
-| `DATABASE_PATH` | SQLite database path | `/data/weather.db` |
-| `UPDATE_INTERVAL` | Weather update interval (minutes) | `10` |
-| `HISTORY_RETENTION_DAYS` | Days to keep historical data | `365` |
-| `ML_RETRAIN_INTERVAL` | Hours between ML retraining | `24` |
-| `LOG_LEVEL` | Logging level | `INFO` |
-
-## Data Sources
-
-### Free APIs Used
-
-1. **Weather.gov (NWS)** - US-only, no API key needed
-2. **Open-Meteo** - Global, free tier, no API key
-3. **wttr.in** - Global, free, simple format
-
-The service aggregates all sources and uses ensemble methods to improve accuracy.
-
-## ML Components
-
-### AI Summaries (Ollama)
-
-- Runs locally on your hardware
-- Models like Llama 3.2, Phi-3, Mistral
-- 100% private, no cloud API calls
-- See [OLLAMA_SETUP.md](OLLAMA_SETUP.md) for setup
-
-### Trend Analysis
-
-- Moving averages (7-day, 30-day)
-- Seasonal decomposition
-- Year-over-year comparisons
-
-### Anomaly Detection
-
-- Statistical z-score analysis
-- Isolation Forest algorithm
-- Threshold-based alerts
-
-### Custom Predictions
-
-- Prophet time series forecasting
-- Ensemble of source predictions
-- Historical accuracy weighting
-
-## Smart Home Recommendations
-
-The AI analyzes upcoming weather and suggests automations:
-
-- "High heat expected - pre-cool home at 2pm"
-- "Strong winds forecast - close awnings and umbrellas"
-- "Clear skies predicted - good time for solar charging"
-- "Freezing temps tonight - protect outdoor plants"
-
-## Development
-
-### Project Structure
-
-```
-weather-forecast-k3s/
-├── app/
-│   ├── main.py              # FastAPI app
-│   ├── models.py            # Pydantic models
-│   ├── database.py          # SQLite operations
-│   ├── services/
-│   │   ├── aggregator.py    # Multi-source weather fetching
-│   │   ├── ai_summary.py    # LLM-powered summaries
-│   │   ├── trends.py        # Trend analysis
-│   │   ├── anomaly.py       # Anomaly detection
-│   │   ├── ml_predict.py    # Custom ML predictions
-│   │   └── recommendations.py  # Smart home suggestions
-│   ├── static/
-│   │   ├── css/
-│   │   └── js/
-│   └── templates/
-│       └── dashboard.html
-├── k8s/
-│   ├── deployment.yaml
-│   ├── service.yaml
-│   ├── configmap.yaml
-│   └── secret.yaml
-├── Dockerfile
-├── requirements.txt
-├── .env.example
-├── .gitignore
-└── README.md
-```
-
-### Testing
+## 🔧 Management
 
 ```bash
-# Run tests
-pytest tests/
+# Check status
+kubectl get pods -n weather-forecast
 
-# Test specific service
-pytest tests/test_aggregator.py -v
+# View logs
+kubectl logs -n weather-forecast -l app=weather-forecast -f
+
+# Restart
+kubectl rollout restart deployment/weather-forecast -n weather-forecast
+
+# Update
+cd Open-Weather-Model
+git pull
+./deploy-all.sh
 ```
 
-## Monitoring
+## 🔥 API Endpoints
 
-- Health check endpoint: `/api/health`
-- Metrics endpoint: `/api/metrics` (Prometheus-compatible)
-- Logs: Structured JSON logging
+- `GET /api/current` - Current weather + AI summary + recommendations
+- `GET /api/forecast` - Full forecast with ML predictions & trends
+- `GET /api/trends` - Historical trend analysis
+- `GET /api/anomalies` - Detected weather anomalies
+- `GET /api/recommendations` - Smart home automation suggestions
+- `POST /api/webhook/forecast` - N8n webhook endpoint
+- `GET /api/health` - Health check
 
-## Troubleshooting
+## 📈 Timeline
 
-### Weather data not updating
+- **Day 1:** Basic weather + AI summaries
+- **Day 3-7:** Trend analysis becomes useful
+- **Day 14+:** ML predictions available (needs historical data)
 
-1. Check API connectivity: `curl http://localhost:8000/api/health`
-2. Verify coordinates are valid
-3. Check logs: `kubectl logs -n weather-forecast <pod-name>`
+## 🐛 Troubleshooting
 
-### ML predictions not available
+See **[QUICKREF.md](QUICKREF.md)** for common issues and fixes.
 
-1. Ensure at least 7 days of historical data collected
-2. Manually trigger training: `curl -X POST http://localhost:8000/api/admin/train`
+**Quick checks:**
+```bash
+# Service health
+curl http://weather.local/api/health
 
-### LLM summaries failing
+# Check Ollama
+kubectl exec deployment/ollama -- ollama list
 
-1. Verify Ollama is running: `curl http://localhost:11434/api/version`
-2. Check model is installed: `ollama list`
-3. Test model: `ollama run llama3.2:3b "test"`
-4. Check logs for connection errors
+# View logs
+kubectl logs -n weather-forecast -l app=weather-forecast --tail=50
+```
 
-## License
+## 🚀 Deployment Options
 
-MIT
+### 1. One-Click K3s Deploy (Recommended)
+```bash
+./deploy-all.sh  # Everything automated!
+```
 
-## Support
+### 2. Manual K3s Deploy
+See [SETUP.md](SETUP.md)
 
-Built with ❤️ by Code Puppy 🐶
+### 3. Local Development
+See [LOCAL_DEV.md](LOCAL_DEV.md)
 
-Questions? Feedback? Open an issue!
+### 4. Docker Compose
+```bash
+docker-compose up -d  # (compose file coming soon)
+```
+
+## 🔒 Security
+
+- All data stays in your K3s cluster
+- No external API keys required (Ollama is local)
+- Weather APIs don't require authentication
+- Add ingress auth if exposing to internet
+
+## 🌟 Contributing
+
+Contributions welcome! Ideas:
+- [ ] Add more weather sources
+- [ ] Build fancy dashboard UI
+- [ ] Create Home Assistant custom component
+- [ ] Add Prometheus metrics
+- [ ] Support more LLM models
+- [ ] Docker Compose deployment
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file
+
+## ❤️ Built For
+
+- Homelab enthusiasts
+- Home automation nerds
+- Privacy-conscious folks
+- People tired of $9.99/month weather apps
+- Anyone who wants AI without cloud dependencies
+
+## 🐶 Credits
+
+Built with Code Puppy on a rainy weekend to prove you don't need expensive cloud services for smart home automation!
+
+**Weather APIs:**
+- [Weather.gov](https://weather.gov) (NWS)
+- [Open-Meteo](https://open-meteo.com)
+- [wttr.in](https://wttr.in)
+
+**Technology:**
+- [Ollama](https://ollama.com) - Local LLM runtime
+- [FastAPI](https://fastapi.tiangolo.com) - Web framework
+- [Prophet](https://facebook.github.io/prophet/) - Time series ML
+- [K3s](https://k3s.io) - Lightweight Kubernetes
+
+---
+
+**Questions? Issues? Star the repo and open an issue!** ⭐
+
+**Enjoy your AI weather station!** 🌦️🐶

@@ -1,0 +1,24 @@
+# Optional: Ingress for external access
+# Uncomment and configure based on your ingress controller
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: weather-forecast-ingress
+  namespace: weather-forecast
+  annotations:
+    # For Traefik (common in K3s)
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+    # For NGINX
+    # kubernetes.io/ingress.class: nginx
+spec:
+  rules:
+  - host: weather.local  # Change to your domain or use IP
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: weather-forecast
+            port:
+              number: 8000
