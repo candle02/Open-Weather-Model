@@ -31,3 +31,24 @@ jobs:
           tags: |
             ghcr.io/candle02/open-weather-model:latest
             ghcr.io/candle02/open-weather-model:${{ github.sha }}
+
+      - name: Checkout k3s-homelab repo
+        uses: actions/checkout@v4
+        with:
+          repository: candle02/k3s-homelab
+          token: ${{ secrets.HOMELAB_TOKEN }}
+          path: k3s-homelab
+
+      - name: Update image tag in deployment
+        run: |
+          sed -i "s|ghcr.io/candle02/open-weather-model:.*|ghcr.io/candle02/open-weather-model:${{ github.sha }}|" \
+            k3s-homelab/apps/open-weather-model/deployment.yaml
+
+      - name: Commit and push to k3s-homelab
+        run: |
+          cd k3s-homelab
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add apps/open-weather-model/deployment.yaml
+          git commit -m "Update open-weather-model image to ${{ github.sha }}"
+          git push
