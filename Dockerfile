@@ -11,15 +11,13 @@ RUN apt-get update && apt-get install -y \
 
 # Install uv for fast Python package installation
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:/root/.cargo/bin:$PATH"
 
 # Copy requirements first for better caching
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN uv pip install --system -r requirements.txt \
-    --index-url https://pypi.ci.artifacts.walmart.com/artifactory/api/pypi/external-pypi/simple \
-    --allow-insecure-host pypi.ci.artifacts.walmart.com
+RUN uv pip install --system -r requirements.txt
 
 # Copy application code
 COPY app/ ./app/
