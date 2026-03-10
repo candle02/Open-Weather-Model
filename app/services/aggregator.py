@@ -10,6 +10,8 @@ from app.models import DailyForecast, HourlyForecast, WeatherConditions
 
 logger = logging.getLogger(__name__)
 
+CLOUD_COVER_MAP = {"SKC": 0, "CLR": 0, "FEW": 20, "SCT": 40, "BKN": 70, "OVC": 100}
+
 
 class WeatherAggregator:
     """Aggregate weather data from multiple free APIs."""
@@ -19,10 +21,12 @@ class WeatherAggregator:
         self.longitude = longitude
         self.location_name = location_name
         self.client = httpx.AsyncClient(timeout=30.0)
+        self.wttr_client = httpx.AsyncClient(timeout=60.0)
 
     async def close(self) -> None:
         """Close HTTP client."""
         await self.client.aclose()
+        await self.wttr_client.aclose()
 
     async def get_current_conditions(self) -> tuple[WeatherConditions, list[str]]:
         """Get current weather from all sources and ensemble."""
@@ -131,11 +135,11 @@ class WeatherAggregator:
             wind_speed=current["wind_speed_10m"],
             wind_direction=current["wind_direction_10m"],
             cloud_cover=current["cloud_cover"],
-            visibility=None,  # Not provided
+            visibility=None,
             conditions=self._wmo_code_to_text(current["weather_code"]),
-            precipitation_prob=None,  # Not in current
+            precipitation_prob=None,
             precipitation_amount=current.get("precipitation", 0),
-            uv_index=None,  # Not provided
+            uv_index=None,
         )
 
     async def _fetch_wttr(self) -> Optional[WeatherConditions]:
@@ -143,7 +147,7 @@ class WeatherAggregator:
         url = f"https://wttr.in/{self.latitude},{self.longitude}"
         params = {"format": "j1"}
 
-        resp = await self.client.get(url, params=params)
+        resp = await self.wttr_client.get(url, params=params)
         resp.raise_for_status()
         data = resp.json()
 
@@ -165,7 +169,6 @@ class WeatherAggregator:
 
     async def _fetch_nws(self) -> Optional[WeatherConditions]:
         """Fetch current conditions from Weather.gov."""
-        # Get grid point
         points_url = f"https://api.weather.gov/points/{self.latitude},{self.longitude}"
         resp = await self.client.get(
             points_url, headers={"User-Agent": "WeatherForecast/1.0"}
@@ -173,7 +176,6 @@ class WeatherAggregator:
         resp.raise_for_status()
         points_data = resp.json()
 
-        # Get observation station
         stations_url = points_data["properties"]["observationStations"]
         resp = await self.client.get(
             stations_url, headers={"User-Agent": "WeatherForecast/1.0"}
@@ -182,7 +184,6 @@ class WeatherAggregator:
         stations = resp.json()
         station_id = stations["features"][0]["properties"]["stationIdentifier"]
 
-        # Get latest observation
         obs_url = f"https://api.weather.gov/stations/{station_id}/observations/latest"
         resp = await self.client.get(
             obs_url, headers={"User-Agent": "WeatherForecast/1.0"}
@@ -190,9 +191,12 @@ class WeatherAggregator:
         resp.raise_for_status()
         obs = resp.json()["properties"]
 
-        # Convert to Fahrenheit
         temp_c = obs["temperature"]["value"]
         temp_f = (temp_c * 9 / 5) + 32 if temp_c else None
+
+        cloud_layers = obs.get("cloudLayers", [])
+        cloud_amount = cloud_layers[0].get("amount", "CLR") if cloud_layers else "CLR"
+        cloud_cover = CLOUD_COVER_MAP.get(cloud_amount, 0)
 
         return WeatherConditions(
             temperature=temp_f or 0,
@@ -201,7 +205,7 @@ class WeatherAggregator:
             pressure=obs["barometricPressure"]["value"] or 0,
             wind_speed=obs["windSpeed"]["value"] or 0,
             wind_direction=obs["windDirection"]["value"],
-            cloud_cover=int(obs.get("cloudLayers", [{}])[0].get("amount", 0)),
+            cloud_cover=cloud_cover,
             visibility=obs["visibility"]["value"] or 0,
             conditions=obs["textDescription"] or "Unknown",
             precipitation_prob=None,
@@ -259,7 +263,6 @@ class WeatherAggregator:
 
     async def _fetch_nws_hourly(self, hours: int) -> list[HourlyForecast]:
         """Fetch hourly forecast from Weather.gov."""
-        # Get grid point for forecast
         points_url = f"https://api.weather.gov/points/{self.latitude},{self.longitude}"
         resp = await self.client.get(
             points_url, headers={"User-Agent": "WeatherForecast/1.0"}
@@ -267,7 +270,6 @@ class WeatherAggregator:
         resp.raise_for_status()
         points_data = resp.json()
 
-        # Get hourly forecast URL
         hourly_url = points_data["properties"]["forecastHourly"]
         resp = await self.client.get(
             hourly_url, headers={"User-Agent": "WeatherForecast/1.0"}
@@ -281,15 +283,13 @@ class WeatherAggregator:
                 temperature=float(period["temperature"]),
                 feels_like=None,
                 humidity=period.get("relativeHumidity", {}).get("value", 0),
-                pressure=0,  # Not provided
+                pressure=0,
                 wind_speed=float(period["windSpeed"].split()[0]),
                 wind_direction=self._direction_to_degrees(period["windDirection"]),
-                cloud_cover=0,  # Not provided
+                cloud_cover=0,
                 visibility=None,
                 conditions=period["shortForecast"],
-                precipitation_prob=period.get("probabilityOfPrecipitation", {}).get(
-                    "value", 0
-                ),
+                precipitation_prob=period.get("probabilityOfPrecipitation", {}).get("value", 0),
                 precipitation_amount=None,
                 uv_index=None,
             )
@@ -344,60 +344,32 @@ class WeatherAggregator:
         n = len(conditions_list)
         return WeatherConditions(
             temperature=sum(c.temperature for c in conditions_list) / n,
-            feels_like=sum(
-                (c.feels_like or c.temperature) for c in conditions_list
-            )
-            / n,
+            feels_like=sum((c.feels_like or c.temperature) for c in conditions_list) / n,
             humidity=int(sum(c.humidity for c in conditions_list) / n),
             pressure=sum(c.pressure for c in conditions_list) / n,
             wind_speed=sum(c.wind_speed for c in conditions_list) / n,
-            wind_direction=int(
-                sum((c.wind_direction or 0) for c in conditions_list) / n
-            ),
+            wind_direction=int(sum((c.wind_direction or 0) for c in conditions_list) / n),
             cloud_cover=int(sum(c.cloud_cover for c in conditions_list) / n),
             visibility=sum((c.visibility or 0) for c in conditions_list) / n or None,
-            conditions=conditions_list[0].conditions,  # Use first source
-            precipitation_prob=int(
-                sum((c.precipitation_prob or 0) for c in conditions_list) / n
-            )
-            or None,
-            precipitation_amount=sum(
-                (c.precipitation_amount or 0) for c in conditions_list
-            )
-            / n
-            or None,
-            uv_index=int(sum((c.uv_index or 0) for c in conditions_list) / n)
-            or None,
+            conditions=conditions_list[0].conditions,
+            precipitation_prob=int(sum((c.precipitation_prob or 0) for c in conditions_list) / n) or None,
+            precipitation_amount=sum((c.precipitation_amount or 0) for c in conditions_list) / n or None,
+            uv_index=int(sum((c.uv_index or 0) for c in conditions_list) / n) or None,
         )
 
     @staticmethod
     def _wmo_code_to_text(code: int) -> str:
         """Convert WMO weather code to text."""
         codes = {
-            0: "Clear sky",
-            1: "Mainly clear",
-            2: "Partly cloudy",
-            3: "Overcast",
-            45: "Fog",
-            48: "Depositing rime fog",
-            51: "Light drizzle",
-            53: "Moderate drizzle",
-            55: "Dense drizzle",
-            61: "Slight rain",
-            63: "Moderate rain",
-            65: "Heavy rain",
-            71: "Slight snow",
-            73: "Moderate snow",
-            75: "Heavy snow",
-            77: "Snow grains",
-            80: "Slight rain showers",
-            81: "Moderate rain showers",
-            82: "Violent rain showers",
-            85: "Slight snow showers",
-            86: "Heavy snow showers",
-            95: "Thunderstorm",
-            96: "Thunderstorm with slight hail",
-            99: "Thunderstorm with heavy hail",
+            0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
+            45: "Fog", 48: "Depositing rime fog", 51: "Light drizzle",
+            53: "Moderate drizzle", 55: "Dense drizzle", 61: "Slight rain",
+            63: "Moderate rain", 65: "Heavy rain", 71: "Slight snow",
+            73: "Moderate snow", 75: "Heavy snow", 77: "Snow grains",
+            80: "Slight rain showers", 81: "Moderate rain showers",
+            82: "Violent rain showers", 85: "Slight snow showers",
+            86: "Heavy snow showers", 95: "Thunderstorm",
+            96: "Thunderstorm with slight hail", 99: "Thunderstorm with heavy hail",
         }
         return codes.get(code, "Unknown")
 
@@ -405,21 +377,8 @@ class WeatherAggregator:
     def _direction_to_degrees(direction: str) -> int:
         """Convert wind direction text to degrees."""
         directions = {
-            "N": 0,
-            "NNE": 22,
-            "NE": 45,
-            "ENE": 67,
-            "E": 90,
-            "ESE": 112,
-            "SE": 135,
-            "SSE": 157,
-            "S": 180,
-            "SSW": 202,
-            "SW": 225,
-            "WSW": 247,
-            "W": 270,
-            "WNW": 292,
-            "NW": 315,
-            "NNW": 337,
+            "N": 0, "NNE": 22, "NE": 45, "ENE": 67, "E": 90, "ESE": 112,
+            "SE": 135, "SSE": 157, "S": 180, "SSW": 202, "SW": 225,
+            "WSW": 247, "W": 270, "WNW": 292, "NW": 315, "NNW": 337,
         }
         return directions.get(direction, 0)
