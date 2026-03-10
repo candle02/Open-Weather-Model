@@ -21,7 +21,7 @@ class WeatherAggregator:
         self.longitude = longitude
         self.location_name = location_name
         self.client = httpx.AsyncClient(timeout=30.0)
-        self.wttr_client = httpx.AsyncClient(timeout=60.0)
+        self.wttr_client = httpx.AsyncClient(timeout=15.0)
 
     async def close(self) -> None:
         """Close HTTP client."""
