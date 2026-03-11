@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rogers Weather — AI Forecast</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Instrument+Serif:ital@0;1&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --sky: #0a0f1e;
+            --sky-mid: #0d1a35;
+            --sky-light: #112244;
+            --horizon: #1a3a6b;
+            --cloud: #1e2d4a;
+            --accent: #4a9eff;
+            --accent-warm: #ff9f4a;
+            --accent-cool: #4affea;
+            --text: #e8f0ff;
+            --text-dim: #8899bb;
+            --text-muted: #445577;
+            --card: rgba(14, 22, 45, 0.85);
+            --card-border: rgba(74, 158, 255, 0.15);
+            --card-hover: rgba(74, 158, 255, 0.08);
+            --danger: #ff4a6a;
+            --warning: #ffb84a;
+            --success: #4affaa;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'DM Sans', sans-serif;
+            background: var(--sky);
+            color: var(--text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Animated sky background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background: 
+                radial-gradient(ellipse 80% 50% at 20% 0%, rgba(26, 58, 107, 0.6) 0%, transparent 60%),
+                radial-gradient(ellipse 60% 40% at 80% 10%, rgba(74, 158, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse 100% 60% at 50% 100%, rgba(10, 15, 30, 1) 0%, transparent 70%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* Stars */
+        body::after {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image: 
+                radial-gradient(1px 1px at 10% 15%, rgba(255,255,255,0.6) 0%, transparent 100%),
+                radial-gradient(1px 1px at 25% 8%, rgba(255,255,255,0.4) 0%, transparent 100%),
+                radial-gradient(1px 1px at 40% 20%, rgba(255,255,255,0.5) 0%, transparent 100%),
+                radial-gradient(1px 1px at 55% 5%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 70% 12%, rgba(255,255,255,0.6) 0%, transparent 100%),
+                radial-gradient(1px 1px at 85% 18%, rgba(255,255,255,0.4) 0%, transparent 100%),
+                radial-gradient(1px 1px at 92% 7%, rgba(255,255,255,0.5) 0%, transparent 100%),
+                radial-gradient(1px 1px at 15% 25%, rgba(255,255,255,0.3) 0%, transparent 100%),
+                radial-gradient(1px 1px at 63% 28%, rgba(255,255,255,0.4) 0%, transparent 100%),
+                radial-gradient(1px 1px at 78% 22%, rgba(255,255,255,0.3) 0%, transparent 100%);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 32px 24px;
+        }
+
+        /* Header */
+        header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            margin-bottom: 48px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--card-border);
+        }
+
+        .header-left h1 {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(2rem, 4vw, 3.5rem);
+            font-weight: 400;
+            font-style: italic;
+            color: var(--text);
+            line-height: 1;
+            letter-spacing: -0.02em;
+        }
+
+        .header-left h1 span {
+            color: var(--accent);
+        }
+
+        .header-left .subtitle {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            margin-top: 6px;
+        }
+
+        .header-right {
+            text-align: right;
+        }
+
+        .last-updated {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            letter-spacing: 0.1em;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--success);
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* Nav tabs */
+        .nav-tabs {
+            display: flex;
+            gap: 4px;
+            margin-bottom: 32px;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 12px;
+            padding: 4px;
+            width: fit-content;
+        }
+
+        .nav-tab {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 8px 20px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-dim);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-tab:hover { color: var(--text); }
+        .nav-tab.active {
+            background: var(--accent);
+            color: var(--sky);
+            font-weight: 500;
+        }
+
+        /* Tab content */
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Cards */
+        .card {
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(12px);
+            transition: border-color 0.2s;
+        }
+
+        .card:hover { border-color: rgba(74, 158, 255, 0.3); }
+
+        .card-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        /* Current conditions hero */
+        .current-hero {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .temp-card {
+            grid-column: span 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .temp-card::before {
+            content: '';
+            position: absolute;
+            top: -40px;
+            right: -40px;
+            width: 120px;
+            height: 120px;
+            background: radial-gradient(circle, rgba(74, 158, 255, 0.15) 0%, transparent 70%);
+            pointer-events: none;
+        }
+
+        .temp-display {
+            font-family: 'Instrument Serif', serif;
+            font-size: clamp(3rem, 6vw, 5rem);
+            font-weight: 400;
+            color: var(--text);
+            line-height: 1;
+            letter-spacing: -0.03em;
+        }
+
+        .temp-display .unit {
+            font-size: 0.4em;
+            color: var(--text-dim);
+            vertical-align: super;
+        }
+
+        .feels-like {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-top: 4px;
+        }
+
+        .conditions-text {
+            font-family: 'Instrument Serif', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            color: var(--accent);
+            margin-top: 8px;
+        }
+
+        .weather-icon {
+            font-size: 3rem;
+            margin-bottom: 8px;
+            filter: drop-shadow(0 0 12px rgba(74, 158, 255, 0.4));
+        }
+
+        /* Metrics grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            text-align: center;
+        }
+
+        .metric-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.6rem;
+            font-weight: 500;
+            color: var(--text);
+            line-height: 1;
+        }
+
+        .metric-unit {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .metric-label {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        /* AI Summary */
+        .ai-summary-card {
+            margin-bottom: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .ai-summary-card::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, var(--accent), var(--accent-cool));
+            border-radius: 2px 0 0 2px;
+        }
+
+        .ai-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--accent);
+            background: rgba(74, 158, 255, 0.1);
+            border: 1px solid rgba(74, 158, 255, 0.2);
+            border-radius: 20px;
+            padding: 3px 10px;
+            margin-bottom: 12px;
+        }
+
+        .ai-summary-text {
+            font-family: 'Instrument Serif', serif;
+            font-size: 1.05rem;
+            line-height: 1.7;
+            color: var(--text);
+            font-style: italic;
+        }
+
+        .ai-key-points {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .key-point {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            background: rgba(74, 158, 255, 0.06);
+            border: 1px solid var(--card-border);
+            border-radius: 6px;
+            padding: 4px 10px;
+        }
+
+        /* Sources */
+        .sources {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 16px;
+        }
+
+        .source-badge {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--success);
+            background: rgba(74, 255, 170, 0.08);
+            border: 1px solid rgba(74, 255, 170, 0.2);
+            border-radius: 4px;
+            padding: 2px 8px;
+        }
+
+        /* Warnings */
+        .warning-card {
+            border-color: rgba(255, 74, 106, 0.3);
+            background: rgba(255, 74, 106, 0.05);
+            margin-bottom: 16px;
+        }
+
+        .warning-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: var(--danger);
+        }
+
+        /* Forecast */
+        .daily-forecast {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-bottom: 24px;
+        }
+
+        .day-card {
+            text-align: center;
+            padding: 16px 8px;
+        }
+
+        .day-name {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .day-icon { font-size: 1.5rem; margin-bottom: 8px; }
+
+        .day-high {
+            font-family: 'DM Mono', monospace;
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text);
+        }
+
+        .day-low {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .day-precip {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.65rem;
+            color: var(--accent);
+            margin-top: 4px;
+        }
+
+        /* Chart container */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            margin-bottom: 24px;
+        }
+
+        .chart-title {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.65rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        /* Trends */
+        .trends-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .trend-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            background: rgba(74, 158, 255, 0.04);
+            border: 1px solid var(--card-border);
+            border-radius: 10px;
+        }
+
+        .trend-name {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-dim);
+        }
+
+        .trend-value {
+            font-family: 'DM Mono', monospace;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .trend-change {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.7rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .trend-up { color: var(--accent-warm); background: rgba(255, 159, 74, 0.1); }
+        .trend-down { color: var(--accent-cool); background: rgba(74, 255, 234, 0.1); }
+        .trend-stable { color: var(--text-muted); background: rgba(136, 153, 187, 0.1); }
+
+        .confidence-bar {
+            height: 2px;
+            background: var(--card-border);
+            border-radius: 1px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 1px;
+            transition: width 1s ease;
+        }
+
+        /* Anomalies */
+        .anomaly-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 14px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border: 1px solid transparent;
+        }
+
+        .anomaly-high {
+            background: rgba(255, 74, 106, 0.06);
+            border-color: rgba(255, 74, 106, 0.2);
+        }
+
+        .anomaly-medium {
+            background: rgba(255, 184, 74, 0.06);
+            border-color: rgba(255, 184, 74, 0.2);
+        }
+
+        .anomaly-low {
+            background: rgba(74, 158, 255, 0.06);
+            border-color: rgba(74, 158, 255, 0.15);
+        }
+
+        .anomaly-severity {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.55rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            padding: 3px 7px;
+            border-radius: 4px;
+            white-space: nowrap;
+        }
+
+        .severity-high { background: rgba(255, 74, 106, 0.15); color: var(--danger); }
+        .severity-medium { background: rgba(255, 184, 74, 0.15); color: var(--warning); }
+        .severity-low { background: rgba(74, 158, 255, 0.15); color: var(--accent); }
+
+        .anomaly-desc {
+            font-size: 0.82rem;
+            color: var(--text-dim);
+            line-height: 1.5;
+        }
+
+        .anomaly-time {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-top: 4px;
+        }
+
+        /* Loading */
+        .loading {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 60px;
+            color: var(--text-muted);
+            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            letter-spacing: 0.1em;
+        }
+
+        .loading-dot {
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--accent);
+            border-radius: 50%;
+            margin: 0 3px;
+            animation: loadingBounce 1.2s ease-in-out infinite;
+        }
+
+        .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes loadingBounce {
+            0%, 100% { transform: translateY(0); opacity: 0.4; }
+            50% { transform: translateY(-6px); opacity: 1; }
+        }
+
+        /* Wind direction compass */
+        .compass {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border: 1px solid var(--card-border);
+            border-radius: 50%;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .compass-arrow {
+            width: 10px;
+            height: 10px;
+            border-right: 2px solid var(--accent);
+            border-top: 2px solid var(--accent);
+            transform-origin: center;
+        }
+
+        /* Hourly scroll */
+        .hourly-scroll {
+            overflow-x: auto;
+            padding-bottom: 8px;
+            margin-bottom: 24px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--card-border) transparent;
+        }
+
+        .hourly-row {
+            display: flex;
+            gap: 8px;
+            min-width: max-content;
+        }
+
+        .hour-card {
+            min-width: 70px;
+            text-align: center;
+            padding: 12px 8px;
+            border-radius: 10px;
+            background: var(--card);
+            border: 1px solid var(--card-border);
+            transition: border-color 0.2s;
+        }
+
+        .hour-card:hover { border-color: rgba(74, 158, 255, 0.3); }
+
+        .hour-time {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .hour-icon { font-size: 1.2rem; margin-bottom: 6px; }
+
+        .hour-temp {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.9rem;
+            color: var(--text);
+        }
+
+        .hour-precip {
+            font-family: 'DM Mono', monospace;
+            font-size: 0.6rem;
+            color: var(--accent);
+            margin-top: 4px;
+        }
+
+        /* Grid layouts */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+
+        @media (max-width: 900px) {
+            .current-hero { grid-template-columns: 1fr 1fr; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+            .daily-forecast { grid-template-columns: repeat(4, 1fr); }
+            .trends-grid { grid-template-columns: 1fr; }
+            .two-col, .three-col { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 600px) {
+            .current-hero { grid-template-columns: 1fr; }
+            .daily-forecast { grid-template-columns: repeat(3, 1fr); }
+            header { flex-direction: column; align-items: flex-start; gap: 12px; }
+            .nav-tabs { overflow-x: auto; }
+        }
+
+        /* Fade-in animation */
+        .fade-in {
+            animation: fadeIn 0.5s ease forwards;
+            opacity: 0;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .fade-in:nth-child(1) { animation-delay: 0.05s; }
+        .fade-in:nth-child(2) { animation-delay: 0.1s; }
+        .fade-in:nth-child(3) { animation-delay: 0.15s; }
+        .fade-in:nth-child(4) { animation-delay: 0.2s; }
+        .fade-in:nth-child(5) { animation-delay: 0.25s; }
+        .fade-in:nth-child(6) { animation-delay: 0.3s; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <header>
+        <div class="header-left">
+            <h1>Rogers<span>,</span> AR</h1>
+            <p class="subtitle">36.332°N · 94.1185°W · AI Weather Model</p>
+        </div>
+        <div class="header-right">
+            <p class="last-updated"><span class="status-dot"></span><span id="last-update">Loading...</span></p>
+        </div>
+    </header>
+
+    <nav class="nav-tabs">
+        <button class="nav-tab active" onclick="showTab('dashboard')">Dashboard</button>
+        <button class="nav-tab" onclick="showTab('forecast')">Forecast</button>
+        <button class="nav-tab" onclick="showTab('trends')">Trends</button>
+        <button class="nav-tab" onclick="showTab('anomalies')">Anomalies</button>
+    </nav>
+
+    <!-- DASHBOARD TAB -->
+    <div id="tab-dashboard" class="tab-content active">
+        <div id="dashboard-content">
+            <div class="loading">
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- FORECAST TAB -->
+    <div id="tab-forecast" class="tab-content">
+        <div id="forecast-content">
+            <div class="loading">
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- TRENDS TAB -->
+    <div id="tab-trends" class="tab-content">
+        <div id="trends-content">
+            <div class="loading">
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ANOMALIES TAB -->
+    <div id="tab-anomalies" class="tab-content">
+        <div id="anomalies-content">
+            <div class="loading">
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+                <span class="loading-dot"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const API = '';  // same origin
+
+function showTab(name) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+    loadTab(name);
+}
+
+const loaded = {};
+async function loadTab(name) {
+    if (loaded[name]) return;
+    loaded[name] = true;
+    if (name === 'dashboard') await loadDashboard();
+    if (name === 'forecast') await loadForecast();
+    if (name === 'trends') await loadTrends();
+    if (name === 'anomalies') await loadAnomalies();
+}
+
+function weatherIcon(conditions) {
+    const c = (conditions || '').toLowerCase();
+    if (c.includes('thunder')) return '⛈️';
+    if (c.includes('snow')) return '❄️';
+    if (c.includes('heavy rain') || c.includes('violent')) return '🌧️';
+    if (c.includes('rain') || c.includes('drizzle') || c.includes('shower')) return '🌦️';
+    if (c.includes('fog')) return '🌫️';
+    if (c.includes('overcast') || c.includes('cloudy')) return '☁️';
+    if (c.includes('partly')) return '⛅';
+    if (c.includes('mainly clear') || c.includes('mostly clear')) return '🌤️';
+    if (c.includes('clear') || c.includes('sunny')) return '☀️';
+    return '🌡️';
+}
+
+function formatTime(iso) {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', hour12: true });
+}
+
+function formatDay(dateStr) {
+    const days = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    return days[new Date(dateStr + 'T12:00:00').getDay()];
+}
+
+function windDir(deg) {
+    const dirs = ['N','NE','E','SE','S','SW','W','NW'];
+    return dirs[Math.round(deg / 45) % 8];
+}
+
+function fmt(val, decimals = 1) {
+    if (val == null) return '—';
+    return Number(val).toFixed(decimals);
+}
+
+async function loadDashboard() {
+    try {
+        const [currentRes, forecastRes] = await Promise.all([
+            fetch(API + '/api/current'),
+            fetch(API + '/api/forecast')
+        ]);
+        const current = await currentRes.json();
+        const forecast = await forecastRes.json();
+
+        const c = current.conditions;
+        const summary = current.ai_summary;
+        const warnings = summary?.warnings || [];
+
+        let html = '';
+
+        // Warnings banner
+        if (warnings.length > 0) {
+            html += `<div class="card warning-card fade-in" style="margin-bottom:16px">
+                <div class="card-label">⚠ Active Alerts</div>
+                ${warnings.map(w => `<div class="warning-item">⚠ ${w}</div>`).join('')}
+            </div>`;
+        }
+
+        // Hero - temp + conditions + AI
+        html += `<div class="current-hero">
+            <div class="card temp-card fade-in">
+                <div class="card-label">Current Temperature</div>
+                <div class="weather-icon">${weatherIcon(c.conditions)}</div>
+                <div class="temp-display">${fmt(c.temperature, 0)}<span class="unit">°F</span></div>
+                <div class="feels-like">Feels like ${fmt(c.feels_like, 0)}°F</div>
+                <div class="conditions-text">${c.conditions}</div>
+            </div>
+
+            <div class="card fade-in" style="grid-column: span 2">
+                <div class="ai-badge">✦ AI Summary · llama3.2:3b</div>
+                <div class="ai-summary-text">${summary?.summary || 'Generating summary...'}</div>
+                ${summary?.key_points?.length > 1 ? `
+                <div class="ai-key-points">
+                    ${summary.key_points.slice(1).map(p => `<span class="key-point">${p}</span>`).join('')}
+                </div>` : ''}
+                <div class="sources" style="margin-top:16px">
+                    <span class="card-label" style="margin:0">Sources:</span>
+                    ${(current.sources_used || []).map(s => `<span class="source-badge">${s}</span>`).join('')}
+                </div>
+            </div>
+        </div>`;
+
+        // Metrics
+        html += `<div class="metrics-grid">
+            <div class="card metric-card fade-in">
+                <div class="metric-value">${fmt(c.humidity, 0)}<span class="metric-unit">%</span></div>
+                <div class="metric-label">Humidity</div>
+            </div>
+            <div class="card metric-card fade-in">
+                <div class="metric-value">${fmt(c.wind_speed, 1)}<span class="metric-unit">mph</span></div>
+                <div class="metric-label">Wind · ${windDir(c.wind_direction)}</div>
+            </div>
+            <div class="card metric-card fade-in">
+                <div class="metric-value">${fmt(c.cloud_cover, 0)}<span class="metric-unit">%</span></div>
+                <div class="metric-label">Cloud Cover</div>
+            </div>
+            <div class="card metric-card fade-in">
+                <div class="metric-value">${c.visibility ? fmt(c.visibility / 1609, 1) : '—'}<span class="metric-unit">${c.visibility ? 'mi' : ''}</span></div>
+                <div class="metric-label">Visibility</div>
+            </div>
+        </div>`;
+
+        // 7-day daily forecast
+        if (forecast.daily?.length) {
+            html += `<div class="card fade-in" style="margin-bottom:24px">
+                <div class="card-label">7-Day Forecast</div>
+                <div class="daily-forecast">
+                    ${forecast.daily.map(d => `
+                        <div class="day-card">
+                            <div class="day-name">${formatDay(d.date)}</div>
+                            <div class="day-icon">${weatherIcon(d.conditions)}</div>
+                            <div class="day-high">${fmt(d.temp_high, 0)}°</div>
+                            <div class="day-low">${fmt(d.temp_low, 0)}°</div>
+                            ${d.precipitation_prob ? `<div class="day-precip">💧${d.precipitation_prob}%</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+        }
+
+        // Timestamp
+        const ts = new Date(current.timestamp);
+        document.getElementById('last-update').textContent = 'Updated ' + ts.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+        document.getElementById('dashboard-content').innerHTML = html;
+
+    } catch(e) {
+        document.getElementById('dashboard-content').innerHTML = `<div class="card"><p style="color:var(--danger)">Error loading data: ${e.message}</p></div>`;
+    }
+}
+
+async function loadForecast() {
+    try {
+        const res = await fetch(API + '/api/forecast');
+        const data = await res.json();
+
+        let html = '';
+
+        // Hourly scroll - next 24 hours
+        if (data.hourly?.length) {
+            const next24 = data.hourly.slice(0, 24);
+            html += `<div class="card fade-in" style="margin-bottom:24px">
+                <div class="card-label">Hourly — Next 24 Hours</div>
+                <div class="hourly-scroll">
+                    <div class="hourly-row">
+                        ${next24.map(h => `
+                            <div class="hour-card">
+                                <div class="hour-time">${formatTime(h.timestamp)}</div>
+                                <div class="hour-icon">${weatherIcon(h.conditions.conditions)}</div>
+                                <div class="hour-temp">${fmt(h.conditions.temperature, 0)}°</div>
+                                ${h.conditions.precipitation_prob != null ? `<div class="hour-precip">💧${h.conditions.precipitation_prob}%</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>`;
+        }
+
+        // Temperature chart
+        if (data.hourly?.length) {
+            const hours48 = data.hourly.slice(0, 48);
+            const labels = hours48.map(h => formatTime(h.timestamp));
+            const temps = hours48.map(h => h.conditions.temperature);
+            const precip = hours48.map(h => h.conditions.precipitation_prob || 0);
+
+            html += `<div class="card fade-in" style="margin-bottom:24px">
+                <div class="chart-title">Temperature Forecast — 48 Hours</div>
+                <div class="chart-container">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+            <div class="card fade-in" style="margin-bottom:24px">
+                <div class="chart-title">Precipitation Probability — 48 Hours</div>
+                <div class="chart-container">
+                    <canvas id="precipChart"></canvas>
+                </div>
+            </div>`;
+
+            document.getElementById('forecast-content').innerHTML = html;
+
+            // Temp chart
+            new Chart(document.getElementById('tempChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Temperature (°F)',
+                        data: temps,
+                        borderColor: '#4a9eff',
+                        backgroundColor: 'rgba(74,158,255,0.08)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        borderWidth: 2,
+                    }]
+                },
+                options: chartOptions('°F')
+            });
+
+            // Precip chart
+            new Chart(document.getElementById('precipChart'), {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Precip Probability (%)',
+                        data: precip,
+                        backgroundColor: 'rgba(74,255,234,0.25)',
+                        borderColor: 'rgba(74,255,234,0.6)',
+                        borderWidth: 1,
+                        borderRadius: 2,
+                    }]
+                },
+                options: chartOptions('%')
+            });
+            return;
+        }
+
+        // 7-day cards
+        if (data.daily?.length) {
+            html += `<div class="card fade-in">
+                <div class="card-label">7-Day Detailed Forecast</div>
+                ${data.daily.map(d => `
+                    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0;border-bottom:1px solid var(--card-border)">
+                        <div style="min-width:60px;font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--text-dim)">${formatDay(d.date)}<br><span style="font-size:0.6rem;color:var(--text-muted)">${d.date}</span></div>
+                        <div style="font-size:1.5rem">${weatherIcon(d.conditions)}</div>
+                        <div style="font-family:'Instrument Serif',serif;font-style:italic;color:var(--text-dim);font-size:0.9rem;flex:1;padding:0 16px">${d.conditions}</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:0.9rem">${fmt(d.temp_high,0)}° <span style="color:var(--text-muted)">${fmt(d.temp_low,0)}°</span></div>
+                        ${d.precipitation_prob ? `<div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--accent);min-width:48px;text-align:right">💧${d.precipitation_prob}%</div>` : ''}
+                    </div>
+                `).join('')}
+            </div>`;
+        }
+
+        document.getElementById('forecast-content').innerHTML = html;
+
+    } catch(e) {
+        document.getElementById('forecast-content').innerHTML = `<div class="card"><p style="color:var(--danger)">Error: ${e.message}</p></div>`;
+    }
+}
+
+function chartOptions(unit) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(14,22,45,0.95)',
+                borderColor: 'rgba(74,158,255,0.2)',
+                borderWidth: 1,
+                titleColor: '#8899bb',
+                bodyColor: '#e8f0ff',
+                titleFont: { family: 'DM Mono', size: 10 },
+                bodyFont: { family: 'DM Mono', size: 12 },
+                callbacks: { label: ctx => ctx.parsed.y + unit }
+            }
+        },
+        scales: {
+            x: {
+                ticks: {
+                    color: '#445577',
+                    font: { family: 'DM Mono', size: 9 },
+                    maxTicksLimit: 12,
+                    maxRotation: 0,
+                },
+                grid: { color: 'rgba(74,158,255,0.05)' },
+                border: { color: 'rgba(74,158,255,0.1)' }
+            },
+            y: {
+                ticks: {
+                    color: '#445577',
+                    font: { family: 'DM Mono', size: 9 },
+                    callback: v => v + unit
+                },
+                grid: { color: 'rgba(74,158,255,0.05)' },
+                border: { color: 'rgba(74,158,255,0.1)' }
+            }
+        }
+    };
+}
+
+async function loadTrends() {
+    try {
+        const [trendsRes, historicalRes] = await Promise.all([
+            fetch(API + '/api/trends'),
+            fetch(API + '/api/historical?limit=50')
+        ]);
+        const trends = await trendsRes.json();
+        const historical = await historicalRes.json();
+
+        let html = '';
+
+        // Trend cards
+        html += `<div class="trends-grid fade-in">
+            ${(trends.trends || []).map(t => {
+                const change7 = t.change_7day;
+                const trendClass = Math.abs(change7) < 0.5 ? 'stable' : change7 > 0 ? 'up' : 'down';
+                const trendSymbol = trendClass === 'stable' ? '→' : trendClass === 'up' ? '↑' : '↓';
+                const unit = t.metric === 'temperature' ? '°F' : t.metric === 'humidity' ? '%' : t.metric === 'wind_speed' ? ' mph' : '';
+                return `<div class="trend-item">
+                    <div>
+                        <div class="trend-name">${t.metric.replace('_',' ')}</div>
+                        <div class="trend-value">${fmt(t.current_value, 1)}${unit}</div>
+                        <div class="confidence-bar"><div class="confidence-fill" style="width:${Math.round(t.confidence*100)}%"></div></div>
+                    </div>
+                    <div style="text-align:right">
+                        <div class="trend-change trend-${trendClass}">${trendSymbol} ${Math.abs(change7).toFixed(1)}</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:0.6rem;color:var(--text-muted);margin-top:4px">7-day</div>
+                        <div style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--text-muted);margin-top:4px">avg: ${fmt(t.avg_7day, 1)}${unit}</div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>`;
+
+        // Historical temperature chart
+        if (historical.observations?.length > 1) {
+            const obs = historical.observations.slice().reverse();
+            const labels = obs.map(o => formatTime(o.timestamp));
+            const temps = obs.map(o => o.temperature);
+            const humidity = obs.map(o => o.humidity);
+
+            html += `<div class="card fade-in" style="margin-bottom:24px">
+                <div class="chart-title">Historical Temperature</div>
+                <div class="chart-container"><canvas id="histTempChart"></canvas></div>
+            </div>
+            <div class="card fade-in">
+                <div class="chart-title">Historical Humidity</div>
+                <div class="chart-container"><canvas id="histHumChart"></canvas></div>
+            </div>`;
+
+            document.getElementById('trends-content').innerHTML = html;
+
+            new Chart(document.getElementById('histTempChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: temps,
+                        borderColor: '#ff9f4a',
+                        backgroundColor: 'rgba(255,159,74,0.06)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointBackgroundColor: '#ff9f4a',
+                        borderWidth: 2,
+                    }]
+                },
+                options: chartOptions('°F')
+            });
+
+            new Chart(document.getElementById('histHumChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        data: humidity,
+                        borderColor: '#4affea',
+                        backgroundColor: 'rgba(74,255,234,0.06)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 2,
+                        pointBackgroundColor: '#4affea',
+                        borderWidth: 2,
+                    }]
+                },
+                options: chartOptions('%')
+            });
+            return;
+        }
+
+        document.getElementById('trends-content').innerHTML = html;
+
+    } catch(e) {
+        document.getElementById('trends-content').innerHTML = `<div class="card"><p style="color:var(--danger)">Error: ${e.message}</p></div>`;
+    }
+}
+
+async function loadAnomalies() {
+    try {
+        const res = await fetch(API + '/api/anomalies');
+        const data = await res.json();
+        const anomalies = data.anomalies || [];
+
+        let html = '';
+
+        if (anomalies.length === 0) {
+            html = `<div class="card fade-in" style="text-align:center;padding:60px">
+                <div style="font-size:2rem;margin-bottom:12px">✓</div>
+                <div style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--success);letter-spacing:0.1em">NO ANOMALIES DETECTED</div>
+                <div style="font-size:0.8rem;color:var(--text-muted);margin-top:8px">All weather patterns within normal parameters</div>
+            </div>`;
+        } else {
+            const bySeverity = { high: [], medium: [], low: [] };
+            anomalies.forEach(a => {
+                const s = a.severity?.toLowerCase();
+                if (bySeverity[s]) bySeverity[s].push(a);
+                else bySeverity.low.push(a);
+            });
+
+            const severityOrder = ['high', 'medium', 'low'];
+            const labels = { high: '⚠ High Severity', medium: '◈ Medium Severity', low: '◇ Low Severity' };
+
+            severityOrder.forEach(sev => {
+                if (bySeverity[sev].length === 0) return;
+                html += `<div class="card fade-in" style="margin-bottom:16px">
+                    <div class="card-label">${labels[sev]} · ${bySeverity[sev].length} event${bySeverity[sev].length > 1 ? 's' : ''}</div>
+                    ${bySeverity[sev].map(a => `
+                        <div class="anomaly-item anomaly-${sev}">
+                            <div>
+                                <span class="anomaly-severity severity-${sev}">${a.severity}</span>
+                            </div>
+                            <div>
+                                <div class="anomaly-desc">${a.description}</div>
+                                <div class="anomaly-time">${new Date(a.timestamp).toLocaleString()} · ${a.metric} · deviation: ${fmt(a.deviation, 2)}σ</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>`;
+            });
+        }
+
+        document.getElementById('anomalies-content').innerHTML = html;
+
+    } catch(e) {
+        document.getElementById('anomalies-content').innerHTML = `<div class="card"><p style="color:var(--danger)">Error: ${e.message}</p></div>`;
+    }
+}
+
+// Load dashboard on start
+loadDashboard();
+
+// Auto-refresh current conditions every 5 minutes
+setInterval(() => {
+    loaded['dashboard'] = false;
+    loadDashboard();
+}, 5 * 60 * 1000);
+</script>
+</body>
+</html>
