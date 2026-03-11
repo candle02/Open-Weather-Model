@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -246,29 +246,9 @@ async def cleanup_old_data() -> None:
 
 
 @app.get("/", response_class=HTMLResponse)
-async def dashboard():
+async def dashboard(request: Request):
     """Main dashboard."""
-    # For now, return a simple HTML page
-    # We'll create the template next
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>AI Weather Forecast</title>
-        <script src="https://unpkg.com/htmx.org@2.0.4"></script>
-        <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body class="bg-gray-50">
-        <div class="container mx-auto px-4 py-8">
-            <h1 class="text-4xl font-bold text-blue-600 mb-8">AI Weather Forecast</h1>
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <p class="text-gray-600">Dashboard loading... Check <a href="/api/current" class="text-blue-600">current weather</a> or <a href="/api/forecast" class="text-blue-600">forecast</a> endpoints.</p>
-                <p class="mt-4 text-sm text-gray-500">Full dashboard with charts coming soon!</p>
-            </div>
-        </div>
-    </body>
-    </html>
-    """
+    return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
 @app.get("/api/current", response_model=CurrentWeatherResponse)
